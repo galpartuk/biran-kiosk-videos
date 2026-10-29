@@ -49,13 +49,19 @@ def run(*cmd, capture=False):
     return r.stdout if capture else None
 
 
+TALL = set()   # ids found on the Shorts tab, filled by channel_ids()
+
+
 def channel_ids():
     """Every video and Short on the channel, newest first (per tab)."""
     ids = []
     for tab in ("videos", "shorts"):
         out = run("yt-dlp", "--flat-playlist", "--print", "id",
                   f"https://www.youtube.com/channel/{CHANNEL}/{tab}", capture=True)
-        ids += [i.strip() for i in out.splitlines() if i.strip()]
+        got = [i.strip() for i in out.splitlines() if i.strip()]
+        ids += got
+        if tab == "shorts":
+            TALL.update(got)
     return ids
 
 
@@ -151,6 +157,13 @@ def mirror(vid, work):
     return entry
 
 
+def write_json(name, data):
+    path = os.path.join(tempfile.gettempdir(), name)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=1)
+    return path
+
+
 def main():
     with open(os.path.join(HERE, "overrides.json"), encoding="utf-8") as f:
         overrides = json.load(f)
@@ -184,11 +197,13 @@ def main():
     if "moved_to" in manifest:
         out["moved_to"] = manifest["moved_to"]
 
+    if MEDIA_DIR:
+        # the whole channel, bundled videos included, for site_sync.py (the birancpa.co.il videos page)
+        channel = [{"id": i, "tall": i in TALL} for i in ids if i not in hidden]
+        publish(write_json("channel.json", channel))
+
     if out != manifest:
-        path = os.path.join(tempfile.gettempdir(), "videos.json")
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(out, f, ensure_ascii=False, indent=1)
-        publish(path)
+        publish(write_json("videos.json", out))
         print(f"videos.json updated: {len(videos)} videos")
     else:
         print("nothing changed")
