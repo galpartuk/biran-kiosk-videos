@@ -14,7 +14,6 @@ import re
 import subprocess
 import sys
 import tempfile
-import urllib.request
 
 CHANNEL = "UCijVSjqTk_ZksU7KjZyF6Mw"
 REPO = os.environ.get("GITHUB_REPOSITORY", "galpartuk/biran-kiosk-videos")
@@ -40,8 +39,10 @@ LONG = 180
 
 def run(*cmd, capture=False):
     print("+", " ".join(cmd), flush=True)
-    r = subprocess.run(cmd, check=True, text=True, encoding="utf-8",
-                       stdout=subprocess.PIPE if capture else None)
+    # no console window pops up when this runs as a hidden scheduled task on Windows
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    r = subprocess.run(cmd, check=True, text=True, encoding="utf-8", creationflags=flags,
+                       stdout=subprocess.PIPE if capture else sys.stdout, stderr=sys.stderr)
     return r.stdout if capture else None
 
 
@@ -56,9 +57,10 @@ def channel_ids():
 
 
 def current_manifest():
+    # through the API: the public download URL can serve the previous copy for a few minutes
     try:
-        with urllib.request.urlopen(BASE + "videos.json", timeout=30) as r:
-            return json.load(r)
+        return json.loads(run("gh", "release", "download", TAG, "-p", "videos.json", "-O", "-",
+                              "-R", REPO, capture=True))
     except Exception as e:
         print("no manifest yet:", e)
         return {"version": 1, "videos": []}

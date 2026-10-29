@@ -1,7 +1,7 @@
 name: mirror videos
+# YouTube answers GitHub's runners with "Sign in to confirm you're not a bot" (2026-10-29), so the
+# schedule runs on an office PC (scheduled.pyw). Kept for a manual try if that ever changes.
 on:
-  schedule:
-    - cron: "17 */3 * * *"   # every 3 hours
   workflow_dispatch:
 permissions:
   contents: write
