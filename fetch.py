@@ -32,7 +32,7 @@ BUNDLED = {
 CAT_WORDS = [
     ("digital", ["אפליקצי", "דיגיטל", "אונליין"]),
     ("media", ["כנסת", "ועדת", "ראיון", "אולפן", "חדשות", "ערוץ", "רדיו"]),
-    ("tax", ["מס ", "מסים", "מיסים", "מע\"מ", "מע״מ", "עוסק", "רשות", "ניכוי", "החזר"]),
+    ("tax", ["מס ", "המס", "מסים", "מיסים", "רשויות", "מע\"מ", "מע״מ", "עוסק", "רשות", "ניכוי", "החזר"]),
 ]
 LOOP_CUT = 120      # long landscape videos leave the loop after this many seconds
 LONG = 180
@@ -68,9 +68,9 @@ def tidy_title(info):
     t = re.sub(r"#\S+", "", info["title"]).split("|")[0].strip(" ,-")
     # "שבתאי בירן חלק 2" says nothing on a card; the description's first line usually does
     desc = (info.get("description") or "").strip().splitlines()
-    if re.search(r"חלק\s*\d+\s*$", t) and desc and 4 <= len(desc[0]) <= 70:
+    if re.search(r"חלק\s*\d+\s*$", t) and desc and 4 <= len(desc[0]) <= 80:
         t = desc[0].strip()
-    return t[:70]
+    return t[:80]
 
 
 def guess_cat(text):
@@ -101,8 +101,10 @@ def mirror(vid, work):
     # Card thumbnail is always 640x360; a tall video also gets a 180x320 poster for the player.
     thumb = os.path.join(work, vid + ".jpg")
     at = str(min(2.0, dur / 3)) if dur else "1"
+    # from a tall video, keep the upper part of the frame, where the faces are
+    crop = "crop=640:360:0:(ih-oh)/5" if tall else "crop=640:360"
     run("ffmpeg", "-loglevel", "error", "-y", "-ss", at, "-i", mp4, "-frames:v", "1", "-q:v", "3",
-        "-vf", "scale=640:360:force_original_aspect_ratio=increase,crop=640:360", thumb)
+        "-vf", "scale=640:360:force_original_aspect_ratio=increase," + crop, thumb)
     files = [mp4, thumb]
     entry = {
         "id": vid,
