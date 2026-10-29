@@ -1,0 +1,23 @@
+name: mirror videos
+on:
+  schedule:
+    - cron: "17 */3 * * *"   # every 3 hours
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: mirror
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2   # yt-dlp needs a JS runtime for YouTube
+        with:
+          deno-version: v2.x
+      - run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          pip install -q -U "yt-dlp[default]"
+      - run: python fetch.py
+        env:
+          GH_TOKEN: ${{ github.token }}
