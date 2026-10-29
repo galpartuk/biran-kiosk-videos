@@ -11,6 +11,7 @@ a loop cut-off ("end", seconds) or hides a video ("hidden": true), keyed by YouT
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -18,7 +19,9 @@ import tempfile
 CHANNEL = "UCijVSjqTk_ZksU7KjZyF6Mw"
 REPO = os.environ.get("GITHUB_REPOSITORY", "galpartuk/biran-kiosk-videos")
 TAG = "media"
-BASE = f"https://github.com/{REPO}/releases/download/{TAG}/"
+# On server1 the feed is plain files in MEDIA_DIR, served at BASE_URL; elsewhere it is the release.
+MEDIA_DIR = os.environ.get("MEDIA_DIR")
+BASE = os.environ.get("BASE_URL", f"https://github.com/{REPO}/releases/download/{TAG}/")
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 # Already inside the APK (clip01-06, short01-11), as of 2026-10-25.
@@ -56,7 +59,24 @@ def channel_ids():
     return ids
 
 
+def publish(*files):
+    if MEDIA_DIR:
+        for f in files:
+            # copy to a temp name and rename, so the tablet never downloads a half-written file
+            tmp = os.path.join(MEDIA_DIR, "." + os.path.basename(f))
+            shutil.copyfile(f, tmp)
+            os.replace(tmp, os.path.join(MEDIA_DIR, os.path.basename(f)))
+    else:
+        run("gh", "release", "upload", TAG, *files, "--clobber", "-R", REPO)
+
+
 def current_manifest():
+    if MEDIA_DIR:
+        try:
+            with open(os.path.join(MEDIA_DIR, "videos.json"), encoding="utf-8") as f:
+                return json.load(f)
+        except FileNotFoundError:
+            return {"version": 1, "videos": []}
     # through the API: the public download URL can serve the previous copy for a few minutes
     try:
         return json.loads(run("gh", "release", "download", TAG, "-p", "videos.json", "-O", "-",
@@ -127,7 +147,7 @@ def mirror(vid, work):
         entry["poster"] = vid + "-tall.jpg"
     elif dur > LONG:
         entry["end"] = LOOP_CUT
-    run("gh", "release", "upload", TAG, *files, "--clobber", "-R", REPO)
+    publish(*files)
     return entry
 
 
@@ -168,7 +188,7 @@ def main():
         path = os.path.join(tempfile.gettempdir(), "videos.json")
         with open(path, "w", encoding="utf-8") as f:
             json.dump(out, f, ensure_ascii=False, indent=1)
-        run("gh", "release", "upload", TAG, path, "--clobber", "-R", REPO)
+        publish(path)
         print(f"videos.json updated: {len(videos)} videos")
     else:
         print("nothing changed")

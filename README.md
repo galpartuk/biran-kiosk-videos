@@ -1,12 +1,18 @@
 # biran-kiosk-videos
 
-Video feed for the entrance tablet at Shabtai Biran CPA. Every 3 hours `fetch.py` checks the
-firm's YouTube channel (from the scheduled task "Biran kiosk videos" on the office PC, running
-`scheduled.pyw`, log in `fetch.log`; YouTube blocks GitHub's runners), and uploads any new video (mp4 + thumbnails) to the `media` release
-together with an updated `videos.json`. The tablet polls that file and downloads what it lacks.
+Video feed for the entrance tablet at Shabtai Biran CPA. **Since 2026-10-29 the feed lives on
+server1** at https://kiosk-videos.all-good.co.il/videos.json (`/opt/services/kiosk-videos`, files in
+`media/`, setup in `server/`). A cron job runs `fetch.py` there every 3 hours (log in `fetch.log`).
+It checks the firm's YouTube channel and copies any new video (mp4 + thumbnails) into `media/`
+along with an updated `videos.json`. The tablet polls that file and downloads what it lacks.
+The `media` release here now only holds a `videos.json` with `moved_to`, which sends the tablet
+to the server. The old laptop scheduled task "Biran kiosk videos" is disabled.
+
+To update the server copy: `tar -c fetch.py overrides.json -C server Dockerfile docker-compose.yml | ssh azizi@all-good.co.il "tar -x -C /opt/services/kiosk-videos"`,
+then `docker compose --profile fetch build fetch` there.
 
 - Fix a title or category, cut a long video short in the loop, or hide a video: edit
   `overrides.json`, e.g. `{"yBjn1cn2e90": {"title": "...", "cat": "tax"}, "abc": {"hidden": true}}`.
-  Categories: `office`, `tax`, `media`, `digital`. Applied on the next run (or run the workflow by hand).
+  Categories: `office`, `tax`, `media`, `digital`. Applied on the next run once copied to the server (or run `docker compose --profile fetch run --rm fetch` there).
 - To run it by hand: `python fetch.py` on a PC with yt-dlp, ffmpeg and an authenticated `gh`.
 - To move the feed elsewhere, add `"moved_to": "<new videos.json URL>"` to the current `videos.json`.

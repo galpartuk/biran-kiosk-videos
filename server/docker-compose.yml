@@ -1,0 +1,42 @@
+# Kiosk video feed on server1 -> https://kiosk-videos.all-good.co.il/videos.json
+# The entrance tablet polls videos.json and downloads what it lacks (see biran-kiosk VideoSync).
+#   docker compose up -d                serves media/ through caddy-docker-proxy
+#   docker compose run --rm fetch       mirrors new channel videos into media/ (cron, every 3h)
+services:
+  web:
+    image: caddy:2-alpine
+    container_name: svc-kiosk-videos
+    restart: unless-stopped
+    command: ["caddy", "file-server", "--root", "/srv", "--listen", ":80"]
+    volumes:
+      - ./media:/srv:ro
+    networks: [proxy]
+    labels:
+      caddy: kiosk-videos.all-good.co.il
+      caddy.reverse_proxy: "{{upstreams 80}}"
+    mem_limit: 64m
+    security_opt: ["no-new-privileges:true"]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  fetch:
+    build: .
+    image: kiosk-videos-fetch:latest
+    profiles: [fetch]
+    environment:
+      MEDIA_DIR: /media
+      BASE_URL: https://kiosk-videos.all-good.co.il/
+      PYTHONUTF8: "1"
+    volumes:
+      - ./media:/media
+    mem_limit: 768m
+    security_opt: ["no-new-privileges:true"]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+networks:
+  proxy:
+    external: true
+    name: proxy
